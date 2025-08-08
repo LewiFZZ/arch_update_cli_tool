@@ -5,12 +5,15 @@
 #include "utils.h"
 
 #define SCRIPT_PATH "./scripts/get_updates.sh"
+#define MAX_PACKAGES 1000
+#define MAX_LEN 256
 
 int process_args(int, char*[]);
 int file_exists(const char *);
 // Update functions
 int check_updates(void);
 int create_script_if_missing(void);
+void evaluate_package_danger(char**, int);
 void get_repo_updates(void);
 void get_aur_updates(void);
 
@@ -101,6 +104,29 @@ int create_script_if_missing() {
     return 0;
 }
 
+void evaluate_package_danger(char **packages,int count) {
+    int high_risk_found = 0;
+    
+    for (int i = 0; i < count; i++)
+    {
+        if(is_high_risk_package(packages[i]))
+        {
+            high_risk_found++;
+            printf("\033[1;31mALERT: Critical Package to update -> %s\033[0m\n", packages[i]);
+        }
+    }
+
+    if(high_risk_found > 0){
+        printf("\033 Watch out! There are %d critical packages with pending updates!\033\n", high_risk_found);
+        printf("\033[1;33mA backup before updating is highly recommended!.\033[0m\n");
+    } else
+    {
+        printf("Hurray!!! No critical packages need updating!\n");
+    }
+    
+    
+}
+
 void get_repo_updates() {
     if (create_script_if_missing() != 0) {
         printf("ERROR: Could not search for updates!\n");
@@ -117,6 +143,37 @@ void get_repo_updates() {
 
     pclose(fp);
     remove(SCRIPT_PATH);
+
+    char *packages[MAX_PACKAGES];
+    int count = 0;
+    char buffer[MAX_LEN];
+
+    FILE *packageNames = popen("checkupdates | awk '{print $1}'", "r");
+    if (!packageNames) {
+        perror("ERROR: Could not get the package names");
+        return;
+    }
+
+    while (fgets(buffer, MAX_LEN, packageNames) != NULL && count < MAX_PACKAGES) {
+        buffer[strcspn(buffer, "\n")] = '\0';
+
+        packages[count] = strdup(buffer); 
+        if (packages[count] == NULL) {
+            perror("strdup failed");
+            
+            break;
+        }
+        count++;
+    }
+
+    pclose(packageNames);
+
+    evaluate_package_danger(packages, count);
+
+    for (int i = 0; i < count; i++) {
+        free(packages[i]);  
+    }
+
 
     printf("Press any key for the next step of the update checking");
     getchar();
@@ -179,6 +236,8 @@ void get_aur_updates(void) {
 int  check_updates() {
     get_repo_updates();
     get_aur_updates();
+
+
     return 0;
 }
 
