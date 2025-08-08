@@ -1,6 +1,6 @@
 #!/bin/bash
 
-gcc main.c -o build/test
+gcc src/main.c -o build/test
 
 echo "Do you want to run the program? (Y/N)"
 read -r ans
@@ -11,5 +11,5 @@ ans=${ans,,}
 if [[ "$ans" == "y" ]]; then
     ./build/test
 else
-    echo "Programa no ejecutado."
+    echo "Program not executed. Build sucessfull"
 fi
