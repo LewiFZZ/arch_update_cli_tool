@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "include/utils.h"
 
 int process_args(int, char*[]);
 void check_updates(void);
@@ -32,6 +33,19 @@ int process_args(int argc, char *argv[]) {
 
     return 0;
     
+
+}
+
+void  check_updates() {
+    FILE *fp = popen("checkupdates", "r");
+    if (fp == NULL) {
+        perror("Error running checkupdates");
+        return;
+    }
+
+    printf("Available updates:\n");
+    print_output_from_fp(fp);
+    pclose(fp);
 
 }
 
