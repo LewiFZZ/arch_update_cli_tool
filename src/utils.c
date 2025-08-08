@@ -1,4 +1,4 @@
-#include "include/utils.h"
+#include "utils.h"
 
 
 void print_output_from_fp(FILE *fp) {
