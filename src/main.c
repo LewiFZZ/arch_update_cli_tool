@@ -8,8 +8,8 @@
 
 int process_args(int, char*[]);
 int file_exists(const char *);
-void create_script_if_missing(void);
-void check_updates(void);
+int create_script_if_missing(void);
+int check_updates(void);
 void check_news(void);
 
 
@@ -45,25 +45,42 @@ int file_exists(const char *filename) {
     return (stat(filename, &buffer) == 0);
 }
 
-void create_script_if_missing() {
+int create_script_if_missing() {
     if (file_exists(SCRIPT_PATH)) {
         printf("Script '%s' already exists!\n", SCRIPT_PATH);
-        return;
+
+        if (chmod(SCRIPT_PATH, 0755) != 0) {
+            perror("ERROR: could not set execution permissions on existing script");
+            return 1;
+        }
+        return 0;
     }
 
     FILE *fp = fopen(SCRIPT_PATH, "w");
     if (fp == NULL)
     {
         perror("ERROR: The script could not be created");
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     fprintf(fp, "#!/bin/bash\n\n");
-    fprintf(fp, "checkupdates | awk '{print $1}' | while read pkg; do\n");
+
+    fprintf(fp, "echo \"Getting updates on packages...\"\n\n");
+
+    fprintf(fp, "count=0\n\n");
+
+    fprintf(fp, "# Store the list in an array\n");
+    fprintf(fp, "mapfile -t packages < <(checkupdates | awk '{print $1}')\n\n");
+
+    fprintf(fp, "for pkg in \"${packages[@]}\"; do\n");
     fprintf(fp, "    echo \"==== $pkg ====\"\n");
     fprintf(fp, "    pacman -Si \"$pkg\" | grep -E \"Name|Repo|Version\"\n");
     fprintf(fp, "    echo \"\"\n");
-    fprintf(fp, "done\n");
+    fprintf(fp, "    count=$((count + 1))\n");
+    fprintf(fp, "done\n\n");
+
+    fprintf(fp, "echo \"Total packages with available updates: $count\"\n");
+
 
     fclose(fp);
 
@@ -76,12 +93,35 @@ void create_script_if_missing() {
 
     printf("Script correctly created and made executable!");
 
-    
+    return 0;
 }
 
 
-void  check_updates() {
-    create_script_if_missing();
+int  check_updates() {
+    if (create_script_if_missing() != 0) {
+        printf("ERROR: Could not search for updates!\n");
+        return 1;
+    }
+
+    FILE *fp = popen(SCRIPT_PATH, "r");
+    if (!fp)
+    {
+        perror("ERROR: Could not execute the updates script!\n");
+        return 2;
+    }
+    
+
+    print_output_from_fp(fp);
+
+
+
+    pclose(fp);
+    remove(SCRIPT_PATH);
+    
+    printf("Press any key for the next step of the update checking");
+    getchar();
+
+    return 0;
 }
 
 
