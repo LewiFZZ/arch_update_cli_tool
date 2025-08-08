@@ -8,8 +8,13 @@
 
 int process_args(int, char*[]);
 int file_exists(const char *);
-int create_script_if_missing(void);
+// Update functions
 int check_updates(void);
+int create_script_if_missing(void);
+void get_repo_updates(void);
+void get_aur_updates(void);
+
+// News Functions
 void check_news(void);
 
 
@@ -96,31 +101,84 @@ int create_script_if_missing() {
     return 0;
 }
 
-
-int  check_updates() {
+void get_repo_updates() {
     if (create_script_if_missing() != 0) {
         printf("ERROR: Could not search for updates!\n");
-        return 1;
+        return;
     }
 
     FILE *fp = popen(SCRIPT_PATH, "r");
-    if (!fp)
-    {
+    if (!fp) {
         perror("ERROR: Could not execute the updates script!\n");
-        return 2;
+        return;
     }
-    
 
     print_output_from_fp(fp);
 
-
-
     pclose(fp);
     remove(SCRIPT_PATH);
-    
+
     printf("Press any key for the next step of the update checking");
     getchar();
+}
 
+void get_aur_updates(void) {
+    const char *aur_script_path = "./scripts/get_aur_updates.sh";
+
+    if (!file_exists(aur_script_path)) {
+        FILE *fp = fopen(aur_script_path, "w");
+        if (fp == NULL) {
+            perror("ERROR: Could not create AUR update script");
+            return;
+        }
+
+        fprintf(fp, "#!/bin/bash\n\n");
+        fprintf(fp, "echo \"Getting updates on AUR packages...\"\n\n");
+        fprintf(fp, "count=0\n\n");
+        fprintf(fp, "mapfile -t packages < <(yay -Qum | awk '{print $1}')\n\n");
+        fprintf(fp, "for pkg in \"${packages[@]}\"; do\n");
+        fprintf(fp, "    echo \"==== $pkg ====\"\n");
+        fprintf(fp, "    yay -Si \"$pkg\" | grep -E \"Name|Repo|Version\"\n");
+        fprintf(fp, "    echo \"\"\n");
+        fprintf(fp, "    count=$((count + 1))\n");
+        fprintf(fp, "done\n\n");
+        fprintf(fp, "echo \"Total AUR packages with available updates: $count\"\n");
+
+        fclose(fp);
+
+        if (chmod(aur_script_path, 0755) != 0) {
+            perror("ERROR: could not make AUR script executable");
+            return;
+        }
+    } else {
+        if (chmod(aur_script_path, 0755) != 0) {
+            perror("ERROR: could not set execution permissions on AUR script");
+            return;
+        }
+        printf("Script '%s' already exists!\n", aur_script_path);
+    }
+
+
+    FILE *fp = popen(aur_script_path, "r");
+    if (!fp) {
+        perror("ERROR: Could not execute the AUR updates script!");
+        return;
+    }
+
+    print_output_from_fp(fp);
+
+    pclose(fp);
+    remove(aur_script_path);
+
+    printf("Press any key to continue...");
+    getchar();
+}
+
+
+
+int  check_updates() {
+    get_repo_updates();
+    get_aur_updates();
     return 0;
 }
 
@@ -128,9 +186,6 @@ int  check_updates() {
 void check_news() {
     printf("\nNot implemented\n");
 }
-
-
-
 
 
 
