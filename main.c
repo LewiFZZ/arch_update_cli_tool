@@ -1,31 +1,30 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+int process_args(int, char*[]);
+void check_updates(void);
+void check_news(void);
 
 
-int main() {
-    FILE *fp;
-    char buffer[256];
+int process_args(int argc, char *argv[]) {
 
-    fp = popen("fastfetch", "r");
-
-    if (fp == NULL) {
-        perror("Error al ejecutar el comando");
+    if(argc > 2){
+        printf("ERROR: The program should have one argument (Example: ./archCheck news)");
         return 1;
     }
+    
+
+}
 
 
-    printf("¡Bienvenido al mundo CLI de Linux!\nPulsa cualquier tecla para confirmar");
-    getchar();
 
 
-    while (fgets(buffer, sizeof(buffer), fp)) {
-        printf("%s", buffer);
-    }
 
 
-    pclose(fp);
-
-    return 0;
 
 
+
+int main(int argc, char *argv[] ) {
+    return process_args(argc, argv);
 }
