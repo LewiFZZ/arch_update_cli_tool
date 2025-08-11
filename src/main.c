@@ -13,11 +13,10 @@ int process_args(int, char*[]);
 int file_exists(const char *);
 // Update functions
 int check_updates(void);
-int create_script_if_missing(void);
-void evaluate_package_danger(char**, int);
-void get_repo_updates(void);
-void get_aur_updates(void);
-void generate_log(void);
+int execute_pacman_script(void);
+void evaluate_package_danger(FILE*,char **,int);
+void get_repo_updates(FILE*);
+void get_aur_updates(FILE*);
 
 // News Functions
 void check_news(void);
@@ -54,203 +53,152 @@ int file_exists(const char *filename) {
     return (stat(filename, &buffer) == 0);
 }
 
-int create_script_if_missing() {
-    if (file_exists(SCRIPT_PATH)) {
-        printf("Script '%s' already exists!\n", SCRIPT_PATH);
+int execute_pacman_script() {
+    const char *cmd = 
+        "echo \"Getting updates on packages...\"\n"
+        "count=0\n"
+        "mapfile -t packages < <(checkupdates | awk '{print $1}')\n"
+        "for pkg in \"${packages[@]}\"; do\n"
+        "    echo \"==== $pkg ====\"\n"
+        "    pacman -Si \"$pkg\" | grep -E \"Name|Repo|Version\"\n"
+        "    echo \"\"\n"
+        "    count=$((count + 1))\n"
+        "done\n"
+        "echo \"Total packages with available updates: $count\"\n";
 
-        if (chmod(SCRIPT_PATH, 0755) != 0) {
-            perror("ERROR: could not set execution permissions on existing script");
-            return 1;
-        }
-        return 0;
-    }
-
-    FILE *fp = fopen(SCRIPT_PATH, "w");
-    if (fp == NULL)
-    {
-        perror("ERROR: The script could not be created");
-        return 1;
-    }
-
-    fprintf(fp, "#!/bin/bash\n\n");
-
-    fprintf(fp, "echo \"Getting updates on packages...\"\n\n");
-
-    fprintf(fp, "count=0\n\n");
-
-    fprintf(fp, "# Store the list in an array\n");
-    fprintf(fp, "mapfile -t packages < <(checkupdates | awk '{print $1}')\n\n");
-
-    fprintf(fp, "for pkg in \"${packages[@]}\"; do\n");
-    fprintf(fp, "    echo \"==== $pkg ====\"\n");
-    fprintf(fp, "    pacman -Si \"$pkg\" | grep -E \"Name|Repo|Version\"\n");
-    fprintf(fp, "    echo \"\"\n");
-    fprintf(fp, "    count=$((count + 1))\n");
-    fprintf(fp, "done\n\n");
-
-    fprintf(fp, "echo \"Total packages with available updates: $count\"\n");
-
-
-    fclose(fp);
-
-    // Make the script +X
-    if (chmod(SCRIPT_PATH, 0755) != 0) {
-        perror("ERROR: could not make the script with execution privilegdes\n");
-        exit(EXIT_FAILURE);
-    }
-
-
-    printf("Script correctly created and made executable!");
-
-    return 0;
-}
-
-void evaluate_package_danger(char **packages,int count) {
-    int high_risk_found = 0;
-    
-    for (int i = 0; i < count; i++)
-    {
-        if(is_high_risk_package(packages[i]))
-        {
-            high_risk_found++;
-            printf("\033[1;31mALERT: Critical Package to update -> %s\033[0m\n", packages[i]);
-        }
-    }
-
-    if(high_risk_found > 0){
-        printf("\033 Watch out! There are %d critical packages with pending updates!\033\n", high_risk_found);
-        printf("\033[1;33mA backup before updating is highly recommended!.\033[0m\n");
-    } else
-    {
-        printf("Hurray!!! No critical packages need updating!\n");
-    }
-    
-    
-}
-
-void get_repo_updates() {
-    if (create_script_if_missing() != 0) {
-        printf("ERROR: Could not search for updates!\n");
-        return;
-    }
-
-    FILE *fp = popen(SCRIPT_PATH, "r");
+    FILE *fp = popen(cmd, "r");
     if (!fp) {
-        perror("ERROR: Could not execute the updates script!\n");
-        return;
+        perror("ERROR: Could not run the update check script");
+        return 1;
     }
 
     print_output_from_fp(fp);
 
-    pclose(fp);
-    remove(SCRIPT_PATH);
+    return 0;
+}
 
-    char *packages[MAX_PACKAGES];
-    int count = 0;
-    char buffer[MAX_LEN];
 
-    FILE *packageNames = popen("checkupdates | awk '{print $1}'", "r");
-    if (!packageNames) {
-        perror("ERROR: Could not get the package names");
+
+void get_repo_updates(FILE *logfile) {
+    
+    printf(
+        "______                 ______          _                         \n"
+        "| ___ \\                | ___ \\        | |                        \n"
+        "| |_/ / __ _ ___  ___  | |_/ /_ _  ___| | ____ _  __ _  ___  ___ \n"
+        "| ___ \\/ _` / __|/ _ \\ |  __/ _` |/ __| |/ / _` |/ _` |/ _ \\/ __|\n"
+        "| |_/ / (_| \\__ \\  __/ | | | (_| | (__|   < (_| | (_| |  __/\\__ \\\n"
+        "\\____/ \\__,_|___/\\___| \\_|  \\__,_|\\___|_|\\_\\__,_|\\__, |\\___||___/\n"
+        "                                                  __/ |          \n"
+        "                                                 |___/           \n"
+    );
+
+    
+    if (execute_pacman_script() != 0) {
+        printf("ERROR: Could not search for updates!\n");
         return;
     }
 
-    while (fgets(buffer, MAX_LEN, packageNames) != NULL && count < MAX_PACKAGES) {
-        buffer[strcspn(buffer, "\n")] = '\0';
+    char *packages[MAX_PACKAGES];
+    int count = run_command_and_collect_lines("checkupdates | awk '{print $1}'", packages, MAX_PACKAGES, MAX_LEN);
+    if (count < 0) return;
 
-        packages[count] = strdup(buffer); 
-        if (packages[count] == NULL) {
-            perror("strdup failed");
-            
-            break;
-        }
-        count++;
-    }
-
-    pclose(packageNames);
-
-    evaluate_package_danger(packages, count);
+    evaluate_package_danger(logfile, packages, count);
 
     for (int i = 0; i < count; i++) {
-        free(packages[i]);  
+        free(packages[i]);
     }
-
 
     printf("Press any key for the next step of the update checking");
     getchar();
 }
 
-void get_aur_updates() {
-    const char *aur_script_path = "./scripts/get_aur_updates.sh";
+void get_aur_updates(FILE *logfile) {
+    printf(
+        "  ___  _   _______  ______          _                         \n"
+        " / _ \\| | | | ___ \\ | ___ \\        | |                        \n"
+        "/ /_\\ \\ | | | |_/ / | |_/ /_ _  ___| | ____ _  __ _  ___  ___ \n"
+        "|  _  | | | |    /  |  __/ _` |/ __| |/ / _` |/ _` |/ _ \\/ __|\n"
+        "| | | | |_| | |\\ \\  | | | (_| | (__|   < (_| | (_| |  __/\\__ \\\n"
+        "\\_| |_/\\___/\\_| \\_| \\_|  \\__,_|\\___|_|\\_\\__,_|\\__, |\\___||___/\n"
+        "                                               __/ |          \n"
+        "                                              |___/           \n"
+    );
 
-    if (!file_exists(aur_script_path)) {
-        FILE *fp = fopen(aur_script_path, "w");
-        if (fp == NULL) {
-            perror("ERROR: Could not create AUR update script");
-            return;
-        }
+    
+    
+    const char *cmd =
+        "yay -Qum | awk '{print $1}' | while read pkg; do "
+        "echo \"==== $pkg ====\"; "
+        "yay -Si \"$pkg\" | grep -E \"Name|Repo|Version\"; "
+        "echo \"\"; "
+        "done";
 
-        fprintf(fp, "#!/bin/bash\n\n");
-        fprintf(fp, "echo \"Getting updates on AUR packages...\"\n\n");
-        fprintf(fp, "count=0\n\n");
-        fprintf(fp, "mapfile -t packages < <(yay -Qum | awk '{print $1}')\n\n");
-        fprintf(fp, "for pkg in \"${packages[@]}\"; do\n");
-        fprintf(fp, "    echo \"==== $pkg ====\"\n");
-        fprintf(fp, "    yay -Si \"$pkg\" | grep -E \"Name|Repo|Version\"\n");
-        fprintf(fp, "    echo \"\"\n");
-        fprintf(fp, "    count=$((count + 1))\n");
-        fprintf(fp, "done\n\n");
-        fprintf(fp, "echo \"Total AUR packages with available updates: $count\"\n");
+    char *packages[MAX_PACKAGES];
+    int count = run_command_and_collect_lines("yay -Qum | awk '{print $1}'", packages, MAX_PACKAGES, MAX_LEN);
+    if (count < 0) return;
 
-        fclose(fp);
+    evaluate_package_danger(logfile, packages, count);
 
-        if (chmod(aur_script_path, 0755) != 0) {
-            perror("ERROR: could not make AUR script executable\n");
-            return;
-        }
-    } else {
-        if (chmod(aur_script_path, 0755) != 0) {
-            perror("ERROR: could not set execution permissions on AUR script\n");
-            return;
-        }
-        printf("Script '%s' already exists!\n", aur_script_path);
+    for (int i = 0; i < count; i++) {
+        free(packages[i]);
     }
 
 
-    FILE *fp = popen(aur_script_path, "r");
+    FILE *fp = popen(cmd, "r");
     if (!fp) {
         perror("ERROR: Could not execute the AUR updates script!\n");
         return;
     }
-
     print_output_from_fp(fp);
-
     pclose(fp);
-    remove(aur_script_path);
 
-    printf("Press any key to continue...");
+    printf("Press any key to continue...\n");
     getchar();
 }
 
-void generate_log(){
-    printf("\n\n\t\tStudytonight - Best place to learn\n\n\n");
-
-    time_t t;   // not a primitive datatype
-    time(&t);
-
-    printf("\nThis program has been writeen at (date and time): %s", ctime(&t));
-
-    printf("\n\n\t\t\tCoding is Fun !\n\n\n");
-}
-
-int  check_updates() {
-    get_repo_updates();
-    get_aur_updates();
-    generate_log();
 
 
+int check_updates() {
+    FILE *logfile = fopen("update.log", "a");
+    if (!logfile) {
+        perror("Error: Could not open the log file\n");
+        return 1;
+    }
+
+    time_t start = time(NULL);
+    char *datetime = ctime(&start);
+    datetime[strcspn(datetime, "\n")] = 0;
+
+    fprintf(logfile, "-------------------- Log start time -> %s --------------------\n", datetime);    
+
+    fprintf(logfile, "\n"
+    "==================================================================\n"
+    "==================  BASE PACKAGE UPDATES  ========================\n"
+    "==================================================================\n\n");
+    
+    get_repo_updates(logfile);
+
+    fprintf(logfile, "\n"
+    "==================================================================\n"
+    "==================  AUR PACKAGE UPDATES  =========================\n"
+    "==================================================================\n\n");
+
+    get_aur_updates(logfile);
+
+    time_t end = time(NULL);
+    datetime = ctime(&end);
+    datetime[strcspn(datetime, "\n")] = 0;
+    fprintf(logfile, "\n-------------------- Log end time -> %s --------------------\n\n", datetime);
+    
+
+    printf("Please check the logs to see the information in text format\nPress any key to close the program");
+    getchar();
+
+    
+    fclose(logfile);
     return 0;
 }
+
 
 
 void check_news() {
