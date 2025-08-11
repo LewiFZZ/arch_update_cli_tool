@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include "utils.h"
 
 #define SCRIPT_PATH "./scripts/get_updates.sh"
@@ -16,6 +17,7 @@ int create_script_if_missing(void);
 void evaluate_package_danger(char**, int);
 void get_repo_updates(void);
 void get_aur_updates(void);
+void generate_log(void);
 
 // News Functions
 void check_news(void);
@@ -24,14 +26,13 @@ void check_news(void);
 int process_args(int argc, char *argv[]) {
 
     if(argc > 2){
-        printf("ERROR: The program should have one argument (Example: ./archCheck news)");
+        printf("ERROR: The program should have one argument (Example: arch-checker news)");
         return 1;
     }
 
      if (argc == 1) {
-        printf("No arguments passed. Checking updates and news...\n");
+        printf("No arguments passed.\n Checking updates...\n");
         check_updates();
-        check_news();
     } else {
         if (strcmp(argv[1], "updates") == 0) {
             check_updates();
@@ -179,7 +180,7 @@ void get_repo_updates() {
     getchar();
 }
 
-void get_aur_updates(void) {
+void get_aur_updates() {
     const char *aur_script_path = "./scripts/get_aur_updates.sh";
 
     if (!file_exists(aur_script_path)) {
@@ -204,12 +205,12 @@ void get_aur_updates(void) {
         fclose(fp);
 
         if (chmod(aur_script_path, 0755) != 0) {
-            perror("ERROR: could not make AUR script executable");
+            perror("ERROR: could not make AUR script executable\n");
             return;
         }
     } else {
         if (chmod(aur_script_path, 0755) != 0) {
-            perror("ERROR: could not set execution permissions on AUR script");
+            perror("ERROR: could not set execution permissions on AUR script\n");
             return;
         }
         printf("Script '%s' already exists!\n", aur_script_path);
@@ -218,7 +219,7 @@ void get_aur_updates(void) {
 
     FILE *fp = popen(aur_script_path, "r");
     if (!fp) {
-        perror("ERROR: Could not execute the AUR updates script!");
+        perror("ERROR: Could not execute the AUR updates script!\n");
         return;
     }
 
@@ -231,11 +232,21 @@ void get_aur_updates(void) {
     getchar();
 }
 
+void generate_log(){
+    printf("\n\n\t\tStudytonight - Best place to learn\n\n\n");
 
+    time_t t;   // not a primitive datatype
+    time(&t);
+
+    printf("\nThis program has been writeen at (date and time): %s", ctime(&t));
+
+    printf("\n\n\t\t\tCoding is Fun !\n\n\n");
+}
 
 int  check_updates() {
     get_repo_updates();
     get_aur_updates();
+    generate_log();
 
 
     return 0;
