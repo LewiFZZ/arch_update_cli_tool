@@ -73,6 +73,7 @@ int execute_pacman_script() {
     }
 
     print_output_from_fp(fp);
+    pclose(fp);
 
     return 0;
 }
