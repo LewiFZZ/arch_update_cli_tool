@@ -27,10 +27,39 @@
 This is my first time building an Arch Linux package and working on a GUI project. I’m uploading this program to the AUR once it’s polished and stable enough. I welcome any tips, suggestions, or contributions from the community to help improve the tool!
 
 ---
+## Installation
+
+You can install **arch_update_cli_tool** from the AUR using your preferred AUR helper or by cloning the repository manually.
+
+### Using an AUR helper
+
+With **yay**:
+
+```bash
+yay -S arch_update_cli_tool
+```
+
+With **paru**:
+
+```bash
+paru -S arch_update_cli_tool
+```
+
+### Manual installation (Download & Build)
+
+Clone the repository and build the package manually:
+```bash
+git clone https://aur.archlinux.org/arch_update_cli_tool.git
+cd arch_update_cli_tool
+makepkg -si
+```
+This will download the package from the AUR, compile the tool, and install it on your system.
 
 ## Usage
 
-Feel free to clone the repo itself while I do not upload it to the AUR by compiling and running the files using the gcc compiler
-
+Once installed, simply run:
 ```bash
-./arch-update-checker
+arch-update-checker
+```
+
+The log will be created in the directory where the command is executed and will be updated on subsequent runs.
