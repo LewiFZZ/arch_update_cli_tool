@@ -17,6 +17,8 @@ const char *high_risk_packages[HIGH_RISK_COUNT] = {
 };
 
 
+
+
 // Functions
 void print_output_from_fp(FILE *fp) {
     char buffer[512];
@@ -87,6 +89,6 @@ void evaluate_package_danger(FILE *logfile,char **packages,int count) {
         fprintf(logfile, "No critical packages needed updating!\n");
     }
     
-    
 }
+
 

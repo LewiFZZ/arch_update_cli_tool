@@ -1,9 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <time.h>
 #include "utils.h"
+
+
 
 #define SCRIPT_PATH "./scripts/get_updates.sh"
 #define MAX_PACKAGES 1000
@@ -203,7 +200,26 @@ int check_updates() {
 
 
 void check_news() {
-    printf("\nNot implemented\n");
+    CURL *curl;
+    CURLcode response;
+
+    printf("\nTest curl\nPress any key to continue...");
+    getchar();
+
+    curl_global_init(CURL_GLOBAL_ALL);
+    curl = curl_easy_init();
+    if(curl){
+        curl_easy_setopt(curl, CURLOPT_URL, "https://archlinux.org/feeds/news/");
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, stdout);
+
+        response = curl_easy_perform(curl);
+
+        if(response != CURLE_OK){
+            printf("ERROR: Request could not be made\n%s", curl_easy_strerror(response));
+        }
+        curl_easy_cleanup(curl);
+    }
+    curl_global_cleanup();
 }
 
 
