@@ -8,11 +8,13 @@ TARGET = build/arch-update-checker
 
 all: $(TARGET)
 
-$(TARGET): $(OBJ)
+$(TARGET): build $(OBJ)
 	$(CC) $(OBJ) -o $@ $(LDFLAGS)
 
-build/%.o: src/%.c
-	@mkdir -p build
+build:
+	mkdir -p build
+
+build/%.o: src/%.c | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 run: $(TARGET)

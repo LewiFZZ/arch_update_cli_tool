@@ -29,8 +29,11 @@ void print_output_from_fp(FILE *fp) {
 
 int is_high_risk_package(const char *pkg) {
     for (int i = 0; i < HIGH_RISK_COUNT; i++) {
-        if (strcmp(pkg, high_risk_packages[i]) == 0) {
-            return 1; 
+        size_t len = strlen(high_risk_packages[i]);
+        if (strstr(pkg, high_risk_packages[i]) == 0) {
+            if (pkg[len] == '\0' || pkg[len] == '-') {
+                return 1;
+            }
         }
     }
     return 0; 
@@ -69,7 +72,7 @@ void evaluate_package_danger(FILE *logfile,char **packages,int count) {
         if(is_high_risk_package(packages[i]))
         {
             high_risk_found++;
-            printf("\033[1;31mALERT: Critical Package to update -> %s\033[0m\n", packages[i]);
+            printf("\033[1;31m ALERT: Critical Package to update -> %s\033[0m\n", packages[i]);
             fprintf(logfile, "CRITICAL: %s needs updating\n", packages[i]);
         }else
         {
@@ -80,7 +83,7 @@ void evaluate_package_danger(FILE *logfile,char **packages,int count) {
 
     if(high_risk_found > 0){
         printf("\033 Watch out! There are %d critical packages with pending updates!\033\n", high_risk_found);
-        printf("\033[1;33mA backup before updating is highly recommended!.\033[0m\n");
+        printf("\033[1;33m A backup before updating is highly recommended!.\033[0m\n");
         fprintf(logfile, "WARNING: %d critical packages with pending updates. Backup recommended.\n", high_risk_found);
         fprintf(logfile," ");
     } else
